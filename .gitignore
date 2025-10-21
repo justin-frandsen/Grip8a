@@ -196,3 +196,6 @@ Temporary Items
 
 # PyPI configuration file
 .pypirc
+
+# ignore SQLite database file
+grip8a.db
