@@ -1,12 +1,14 @@
 from flask import Flask, render_template
-import flask
-print(flask.__version__)
 
 app = Flask(__name__)
 
 @app.route('/')
 def index():
     return render_template('index.html', template_folder='templates')
+
+@app.route('/hello/<name>')
+def hello(name):
+    return render_template('page.html', name=name)
 
 @app.route('/stats')
 def cakes():
