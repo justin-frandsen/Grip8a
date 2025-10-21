@@ -14,20 +14,31 @@
   </nav>
   <hr>
   <h2>Dynamic Force Graph</h2>
+  <div>
+    <!-- Dropdown for which user we are going to look at -->
+    <label for="user-select">User:</label>
+    <select id="user-select">
+      <option value="">(anonymous)</option>
+    </select>
+    <!-- Empty field for creating a new user (make sure sql injection doesn't work)-->
+    <button id="create-user">Create User</button>
+    <input id="new-username" placeholder="New username" />
+  </div>
   <div id="chart" style="width:90%;height:400px;"></div>
 
   <script>
+    // I need to add options change what we display depend on the to user selected
     // Create an initial empty plot
     Plotly.newPlot('chart', [{
       x: [],
       y: [],
       mode: 'lines',
       name: 'Force (N)',
-      line: {color: 'blue'} //, shape: 'spline'}
+      line: {color: 'blue'}
 
     }], {
       title: 'Live Force Data',
-      xaxis: {title: 'Time (s)'},
+      xaxis: {title: 'Time', type: 'date'},
       yaxis: {title: 'Force (N)'}
     });
 
@@ -36,14 +47,29 @@
         const res = await fetch('/data');
         const data = await res.json();
 
-        // Create readable timestamp
-        const currentTime = new Date(data.time * 1000).toLocaleTimeString();
+        // Prefer millisecond timestamp if provided
+        const tsMs = data.time_ms ? data.time_ms : Math.floor(data.time * 1000);
+        const dt = new Date(tsMs);
 
-        // Add a new point dynamically
+        // Add a new point dynamically (Plotly date axis uses JS Date or ISO string)
         Plotly.extendTraces('chart', {
-          x: [[currentTime]],
+          x: [[dt]],
           y: [[data.force]]
         }, [0], 30);  // <-- keep only the latest 30 points
+
+        // Optionally POST the reading to the server for persistence
+        const userSelect = document.getElementById('user-select');
+        const userId = userSelect ? userSelect.value || null : null;
+        fetch('/api/readings', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            user_id: userId ? Number(userId) : null,
+            force: data.force,
+            timestamp_ms: tsMs,
+            timestamp_iso: data.time_iso || new Date(tsMs).toISOString()
+          })
+        }).catch(err => console.warn('Could not POST reading:', err));
 
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -52,6 +78,46 @@
 
     // Run update every 500 ms will make this faster for real pulling data from sensors
     setInterval(updateGraph, 500);
+
+    // Fetch users to populate selector
+    async function loadUsers() {
+      try {
+        const res = await fetch('/api/users');
+        const users = await res.json();
+        const sel = document.getElementById('user-select');
+        users.forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u.id;
+          opt.textContent = u.name;
+          sel.appendChild(opt);
+        });
+      } catch (err) {
+        console.warn('Could not load users:', err);
+      }
+    }
+
+    document.getElementById('create-user').addEventListener('click', async () => {
+      const name = document.getElementById('new-username').value.trim();
+      if (!name) return alert('Enter a name');
+      try {
+        const res = await fetch('/api/users', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name})
+        });
+        const user = await res.json();
+        const sel = document.getElementById('user-select');
+        const opt = document.createElement('option');
+        opt.value = user.id;
+        opt.textContent = user.name;
+        sel.appendChild(opt);
+        sel.value = user.id;
+      } catch (err) {
+        console.warn('Could not create user:', err);
+      }
+    });
+
+    loadUsers();
   </script>
 </body>
 </html>
