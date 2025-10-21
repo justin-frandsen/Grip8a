@@ -199,3 +199,4 @@ Temporary Items
 
 # ignore SQLite database file
 grip8a.db
+*.db

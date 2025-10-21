@@ -62,7 +62,14 @@ def hello(name):
 # renders dynamic graph page
 @app.route('/graph')
 def graph():
-    return render_template('graph.html')
+    # default graph with no pre-selected user
+    return render_template('graph.html', selected_user=None)
+
+
+@app.route('/graph/<username>')
+def graph_for_user(username):
+    # pass the selected username to the template so it can pre-select
+    return render_template('graph.html', selected_user=username)
 
 # Will later be used to show statistics (probably not updated quite as often as /data)
 @app.route('/stats')
@@ -119,7 +126,7 @@ def api_readings():
         if force is None:
             return jsonify({'error': 'force required'}), 400
 
-        # fill timestamps if not provided
+        # fill timestamps if not provided (might get rid of this still considering how to handle missing timestamps and data)
         if timestamp_ms is None:
             ts = time.time()
             timestamp_ms = int(ts * 1000)
