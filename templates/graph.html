@@ -27,6 +27,7 @@
     <input id="new-username" placeholder="New username" />
   </div>
   <div style="margin-top:8px;">
+    <!-- Reccording controls -->
     <label for="record-seconds">Record for (seconds):</label>
     <input id="record-seconds" type="number" min="1" value="10" style="width:80px;" />
     <button id="start-recording">Start Recording</button>
@@ -53,8 +54,8 @@
     async function updateGraph() {
       try {
         console.debug('updateGraph running, recording active=', window._recording && window._recording.active);
-        const res = await fetch('/data');
-        const data = await res.json();
+        const res = await fetch('/data'); // Fetch latest data point from server
+        const data = await res.json(); // parse response as JSON
 
         // Prefer millisecond timestamp if provided
         const tsMs = data.time_ms ? data.time_ms : Math.floor(data.time * 1000);

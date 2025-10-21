@@ -65,7 +65,7 @@ def graph():
     # default graph with no pre-selected user
     return render_template('graph.html', selected_user=None)
 
-
+# dynamic graph page for specific user
 @app.route('/graph/<username>')
 def graph_for_user(username):
     # pass the selected username to the template so it can pre-select
@@ -87,9 +87,8 @@ def data():
         'time': ts,              # seconds since epoch (float)
         'time_ms': ts_ms,        # milliseconds since epoch (int)
         'time_iso': ts_iso,      # ISO 8601 string in UTC
-        'force': random.uniform(20, 80)
+        'force': random.uniform(20, 80) # random force value use the real sensor data here
     })
-
 
 # API: create a user
 @app.route('/api/users', methods=['GET', 'POST'])
@@ -111,7 +110,6 @@ def users():
     # GET - list users
     all_users = User.query.all()
     return jsonify([u.to_dict() for u in all_users])
-
 
 # API: post a reading
 @app.route('/api/readings', methods=['POST', 'GET'])
