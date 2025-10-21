@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dynamic Force Graph</title>
+  <!-- This pulls in the Plotly library from a CDN so we don't need to host or install it ourselves -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body>
+  <nav>
+    <!-- Sets other pages at the top of the page -->
+    <a href="/">Home</a> |
+    <a href="/graph">Graph</a> |
+    <a href="/stats">Stats</a>
+  </nav>
+  <hr>
+  <h2>Dynamic Force Graph</h2>
+  <div id="chart" style="width:90%;height:400px;"></div>
+
+  <script>
+    // Create an initial empty plot
+    Plotly.newPlot('chart', [{
+      x: [],
+      y: [],
+      mode: 'lines',
+      name: 'Force (N)',
+      line: {color: 'blue'} //, shape: 'spline'}
+
+    }], {
+      title: 'Live Force Data',
+      xaxis: {title: 'Time (s)'},
+      yaxis: {title: 'Force (N)'}
+    });
+
+    async function updateGraph() {
+      try {
+        const res = await fetch('/data');
+        const data = await res.json();
+
+        // Create readable timestamp
+        const currentTime = new Date(data.time * 1000).toLocaleTimeString();
+
+        // Add a new point dynamically
+        Plotly.extendTraces('chart', {
+          x: [[currentTime]],
+          y: [[data.force]]
+        }, [0], 30);  // <-- keep only the latest 30 points
+
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      }
+    }
+
+    // Run update every 500 ms will make this faster for real pulling data from sensors
+    setInterval(updateGraph, 500);
+  </script>
+</body>
+</html>
