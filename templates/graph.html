@@ -1,216 +1,269 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>Dynamic Force Graph</title>
-  <!-- This pulls in the Plotly library from a CDN so we don't need to host or install it ourselves -->
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-</head>
-<body>
-  <nav>
-    <!-- Sets other pages at the top of the page -->
-    <a href="/">Home</a> |
-    <a href="/graph">Graph</a> |
-    <a href="/stats">Stats</a>
-  </nav>
-  <hr>
-  <h2>Dynamic Force Graph</h2>
-  <!-- server-provided selected user stored in a hidden field to avoid JS/Jinja injection issues -->
-  <input type="hidden" id="selected-user" value="{{ selected_user|e }}" />
-  <div>
-    <!-- Dropdown for which user we are going to look at -->
-    <label for="user-select">User:</label>
-    <select id="user-select">
-      <option value="">(anonymous)</option>
-    </select>
-    <!-- Empty field for creating a new user (make sure sql injection doesn't work)-->
-    <button id="create-user">Create User</button>
-    <input id="new-username" placeholder="New username" />
-  </div>
-  <div style="margin-top:8px;">
-    <!-- Reccording controls -->
-    <label for="record-seconds">Record for (seconds):</label>
-    <input id="record-seconds" type="number" min="1" value="10" style="width:80px;" />
-    <button id="start-recording">Start Recording</button>
-    <span id="record-status" style="margin-left:12px;color:green;">Not recording</span>
-  </div>
-  <div id="chart" style="width:90%;height:400px;"></div>
+    <head>
+        <title>Dynamic Force Graph</title>
+        <!-- This pulls in the Plotly library from a CDN so we don't need to host or install it ourselves -->
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    </head>
+    <body>
+        <nav>
+            <!-- Sets other pages at the top of the page -->
+            <a href="/">Home</a> | <a href="/graph">Graph</a> |
+            <a href="/stats">Stats</a>
+        </nav>
+        <hr />
+        <h2>Dynamic Force Graph</h2>
+        <!-- server-provided selected user stored in a hidden field to avoid JS/Jinja injection issues -->
+        <input type="hidden" id="selected-user" value="{{ selected_user|e }}" />
+        <div>
+            <!-- Dropdown for which user we are going to look at -->
+            <label for="user-select">User:</label>
+            <select id="user-select">
+                <option value="">(anonymous)</option>
+            </select>
+            <!-- Empty field for creating a new user (make sure sql injection doesn't work)-->
+            <button id="create-user">Create User</button>
+            <input id="new-username" placeholder="New username" />
+        </div>
+        <div style="margin-top: 8px">
+            <!-- Reccording controls -->
+            <label for="record-seconds">Record for (seconds):</label>
+            <input
+                id="record-seconds"
+                type="number"
+                min="1"
+                value="10"
+                style="width: 80px"
+            />
+            <button id="start-recording">Start Recording</button>
+            <span id="record-status" style="margin-left: 12px; color: green"
+                >Not recording</span
+            >
+        </div>
+        <div id="chart" style="width: 90%; height: 400px"></div>
 
-  <script>
-    // I need to add options change what we display depend on the to user selected
-    // Create an initial empty plot
-    Plotly.newPlot('chart', [{
-      x: [],
-      y: [],
-      mode: 'lines',
-      name: 'Force (N)',
-      line: {color: 'blue'}
+        <script>
+            // I need to add options change what we display depend on the to user selected
+            // Create an initial empty plot
+            Plotly.newPlot(
+                "chart",
+                [
+                    {
+                        x: [],
+                        y: [],
+                        mode: "lines",
+                        name: "Force (N)",
+                        line: { color: "blue" },
+                    },
+                ],
+                {
+                    title: "Live Force Data",
+                    xaxis: { title: "Time", type: "date" },
+                    yaxis: { title: "Force (N)" },
+                },
+            );
 
-    }], {
-      title: 'Live Force Data',
-      xaxis: {title: 'Time', type: 'date'},
-      yaxis: {title: 'Force (N)'}
-    });
-
-    async function updateGraph() {
-      try {
-        console.debug('updateGraph running, recording active=', window._recording && window._recording.active);
-        const res = await fetch('/data'); // Fetch latest data point from server
-        const data = await res.json(); // parse response as JSON
-
-        // Prefer millisecond timestamp if provided
-        const tsMs = data.time_ms ? data.time_ms : Math.floor(data.time * 1000);
-        const dt = new Date(tsMs);
-
-        // Add a new point dynamically (Plotly date axis uses JS Date or ISO string)
-        Plotly.extendTraces('chart', {
-          x: [[dt]],
-          y: [[data.force]]
-        }, [0], 30);  // <-- keep only the latest 30 points
-        console.debug('plotted point', dt, data.force);
-
-        // Only POST the reading to the server when a recording is active
-        if (window._recording && window._recording.active) {
-          const userSelect = document.getElementById('user-select');
-          const userId = userSelect ? userSelect.value || null : null;
-          fetch('/api/readings', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-              user_id: userId ? Number(userId) : null,
-              force: data.force,
-              timestamp_ms: tsMs,
-              timestamp_iso: data.time_iso || new Date(tsMs).toISOString()
-            })
-          }).then(res => {
-            // increment count if created
-            if (res.ok) {
-              window._recording.count = (window._recording.count || 0) + 1;
+            async function connectBLE() {
+                const res = await fetch("/connect");
             }
-          }).catch(err => console.warn('Could not POST reading:', err));
-          // If recording time elapsed, stop
-          if (Date.now() >= window._recording.endTs) {
-            stopRecording();
-          }
-        }
 
-      } catch (err) {
-        console.error('Error fetching data:', err);
-      }
-    }
+            async function updateGraph() {
+                try {
+                    console.debug(
+                        "updateGraph running, recording active=",
+                        window._recording && window._recording.active,
+                    );
+                    const res = await fetch("/data"); // Fetch latest data point from server
+                    const data = await res.json(); // parse response as JSON
 
-  // Run update every 500 ms will make this faster for real pulling data from sensors
-  setInterval(updateGraph, 500);
-  // Call once immediately so the plot isn't blank until the first interval fires
-  updateGraph();
+                    // Prefer millisecond timestamp if provided
+                    const tsMs = data.time_ms
+                        ? data.time_ms
+                        : Math.floor(data.time * 1000);
+                    const dt = new Date(tsMs);
 
-    // Fetch users to populate selector
-    async function loadUsers() {
-      try {
-        const res = await fetch('/api/users');
-        const users = await res.json();
-        const sel = document.getElementById('user-select');
-        users.forEach(u => {
-          const opt = document.createElement('option');
-          opt.value = u.id;
-          opt.textContent = u.name;
-          sel.appendChild(opt);
-        });
-        // If the server provided a selected username, try to pre-select it
-        const selectedUser = (document.getElementById('selected-user') && document.getElementById('selected-user').value) || '';
-        if (selectedUser) {
-          // find the option matching that username and select it
-          for (let i = 0; i < sel.options.length; i++) {
-            if (sel.options[i].text === selectedUser) {
-              sel.selectedIndex = i;
-              break;
+                    // Add a new point dynamically (Plotly date axis uses JS Date or ISO string)
+                    Plotly.extendTraces(
+                        "chart",
+                        {
+                            x: [[dt]],
+                            y: [[data.force]],
+                        },
+                        [0],
+                        30,
+                    ); // <-- keep only the latest 30 points
+                    console.debug("plotted point", dt, data.force);
+
+                    // Only POST the reading to the server when a recording is active
+                    if (window._recording && window._recording.active) {
+                        const userSelect =
+                            document.getElementById("user-select");
+                        const userId = userSelect
+                            ? userSelect.value || null
+                            : null;
+                        fetch("/api/readings", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                user_id: userId ? Number(userId) : null,
+                                force: data.force,
+                                timestamp_ms: tsMs,
+                                timestamp_iso:
+                                    data.time_iso ||
+                                    new Date(tsMs).toISOString(),
+                            }),
+                        })
+                            .then((res) => {
+                                // increment count if created
+                                if (res.ok) {
+                                    window._recording.count =
+                                        (window._recording.count || 0) + 1;
+                                }
+                            })
+                            .catch((err) =>
+                                console.warn("Could not POST reading:", err),
+                            );
+                        // If recording time elapsed, stop
+                        if (Date.now() >= window._recording.endTs) {
+                            stopRecording();
+                        }
+                    }
+                } catch (err) {
+                    console.error("Error fetching data:", err);
+                }
             }
-          }
-        }
-        // When user selection changes, navigate to /graph/<username> or /graph for anonymous
-        sel.addEventListener('change', (e) => {
-          const val = e.target.options[e.target.selectedIndex].text;
-          if (!val || val === '(anonymous)') {
-            window.location.href = '/graph';
-          } else {
-            // encode the username for a URL path
-            window.location.href = '/graph/' + encodeURIComponent(val);
-          }
-        });
-      } catch (err) {
-        console.warn('Could not load users:', err);
-      }
-    }
 
-    // Recording control state stored globally
-    window._recording = { active: false, endTs: 0, count: 0 };
+            // Run update every 500 ms will make this faster for real pulling data from sensors
+            setInterval(updateGraph, 100);
 
-    function startRecording(seconds) {
-      if (!seconds || seconds <= 0) return;
-      window._recording.active = true;
-      window._recording.count = 0;
-      window._recording.endTs = Date.now() + (seconds * 1000);
-      updateRecordStatus();
-      // ensure polling continues (updateGraph called by setInterval)
-    }
+            // Auto-connect removed. Use Home page \"Connect BLE\" button to start BLE.
+            // Call once immediately so the plot isn't blank until the first interval fires
+            updateGraph();
 
-    function stopRecording() {
-      window._recording.active = false;
-      updateRecordStatus(true);
-    }
+            // Fetch users to populate selector
+            async function loadUsers() {
+                try {
+                    const res = await fetch("/api/users");
+                    const users = await res.json();
+                    const sel = document.getElementById("user-select");
+                    users.forEach((u) => {
+                        const opt = document.createElement("option");
+                        opt.value = u.id;
+                        opt.textContent = u.name;
+                        sel.appendChild(opt);
+                    });
+                    // If the server provided a selected username, try to pre-select it
+                    const selectedUser =
+                        (document.getElementById("selected-user") &&
+                            document.getElementById("selected-user").value) ||
+                        "";
+                    if (selectedUser) {
+                        // find the option matching that username and select it
+                        for (let i = 0; i < sel.options.length; i++) {
+                            if (sel.options[i].text === selectedUser) {
+                                sel.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    // When user selection changes, navigate to /graph/<username> or /graph for anonymous
+                    sel.addEventListener("change", (e) => {
+                        const val =
+                            e.target.options[e.target.selectedIndex].text;
+                        if (!val || val === "(anonymous)") {
+                            window.location.href = "/graph";
+                        } else {
+                            // encode the username for a URL path
+                            window.location.href =
+                                "/graph/" + encodeURIComponent(val);
+                        }
+                    });
+                } catch (err) {
+                    console.warn("Could not load users:", err);
+                }
+            }
 
-    function updateRecordStatus(final=false) {
-      const status = document.getElementById('record-status');
-      if (!status) return;
-      if (window._recording.active) {
-        const remaining = Math.max(0, Math.ceil((window._recording.endTs - Date.now())/1000));
-        status.textContent = `Recording... ${remaining}s left (saved: ${window._recording.count})`;
-        status.style.color = 'red';
-      } else {
-        if (final) {
-          status.textContent = `Recording stopped — saved ${window._recording.count} readings`;
-        } else {
-          status.textContent = 'Not recording';
-        }
-        status.style.color = 'green';
-      }
-    }
+            // Recording control state stored globally
+            window._recording = { active: false, endTs: 0, count: 0 };
 
-    // wire up the start button
-    document.getElementById('start-recording').addEventListener('click', () => {
-      const secondsEl = document.getElementById('record-seconds');
-      const seconds = Number(secondsEl && secondsEl.value) || 0;
-      if (window._recording.active) {
-        stopRecording();
-      } else {
-        startRecording(seconds);
-      }
-    });
+            function startRecording(seconds) {
+                if (!seconds || seconds <= 0) return;
+                window._recording.active = true;
+                window._recording.count = 0;
+                window._recording.endTs = Date.now() + seconds * 1000;
+                updateRecordStatus();
+                // ensure polling continues (updateGraph called by setInterval)
+            }
 
-    // update status every 500ms so countdown is visible
-    setInterval(updateRecordStatus, 500);
+            function stopRecording() {
+                window._recording.active = false;
+                updateRecordStatus(true);
+            }
 
-    document.getElementById('create-user').addEventListener('click', async () => {
-      const name = document.getElementById('new-username').value.trim();
-      if (!name) return alert('Enter a name');
-      try {
-        const res = await fetch('/api/users', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({name})
-        });
-        const user = await res.json();
-        const sel = document.getElementById('user-select');
-        const opt = document.createElement('option');
-        opt.value = user.id;
-        opt.textContent = user.name;
-        sel.appendChild(opt);
-        sel.value = user.id;
-      } catch (err) {
-        console.warn('Could not create user:', err);
-      }
-    });
+            function updateRecordStatus(final = false) {
+                const status = document.getElementById("record-status");
+                if (!status) return;
+                if (window._recording.active) {
+                    const remaining = Math.max(
+                        0,
+                        Math.ceil(
+                            (window._recording.endTs - Date.now()) / 1000,
+                        ),
+                    );
+                    status.textContent = `Recording... ${remaining}s left (saved: ${window._recording.count})`;
+                    status.style.color = "red";
+                } else {
+                    if (final) {
+                        status.textContent = `Recording stopped — saved ${window._recording.count} readings`;
+                    } else {
+                        status.textContent = "Not recording";
+                    }
+                    status.style.color = "green";
+                }
+            }
 
-    loadUsers();
-  </script>
-</body>
+            // wire up the start button
+            document
+                .getElementById("start-recording")
+                .addEventListener("click", () => {
+                    const secondsEl = document.getElementById("record-seconds");
+                    const seconds = Number(secondsEl && secondsEl.value) || 0;
+                    if (window._recording.active) {
+                        stopRecording();
+                    } else {
+                        startRecording(seconds);
+                    }
+                });
+
+            // update status every 500ms so countdown is visible
+            setInterval(updateRecordStatus, 500);
+
+            document
+                .getElementById("create-user")
+                .addEventListener("click", async () => {
+                    const name = document
+                        .getElementById("new-username")
+                        .value.trim();
+                    if (!name) return alert("Enter a name");
+                    try {
+                        const res = await fetch("/api/users", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ name }),
+                        });
+                        const user = await res.json();
+                        const sel = document.getElementById("user-select");
+                        const opt = document.createElement("option");
+                        opt.value = user.id;
+                        opt.textContent = user.name;
+                        sel.appendChild(opt);
+                        sel.value = user.id;
+                    } catch (err) {
+                        console.warn("Could not create user:", err);
+                    }
+                });
+
+            loadUsers();
+        </script>
+    </body>
 </html>

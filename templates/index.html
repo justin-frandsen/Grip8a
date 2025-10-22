@@ -1,16 +1,95 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>Grip8a Home</title>
-</head>
-<body>
-  <h1>Welcome to Grip8a!</h1>
-  <nav>
-    <a href="/">Home</a> |
-    <a href="/graph">Graph</a> |
-    <a href="/stats">Stats</a>
-  </nav>
-  <hr>
-  <p>This is the home page. Go to the Graph page to see some fake data</p>
-</body>
+    <head>
+        <title>Grip8a Home</title>
+    </head>
+    <body>
+        <h1>Welcome to Grip8a!</h1>
+        <nav>
+            <a href="/">Home</a> | <a href="/graph">Graph</a> |
+            <a href="/stats">Stats</a>
+        </nav>
+        <hr />
+        <p>This is the home page. Go to the Graph page to see some fake data</p>
+
+        <div style="margin-top: 12px">
+            <button id="ble-connect">Connect BLE</button>
+            <button id="ble-disconnect">Disconnect BLE</button>
+            <span id="ble-status" style="margin-left: 8px">Not connected</span>
+        </div>
+
+        <script>
+            async function setStatus(text) {
+                const el = document.getElementById("ble-status");
+                if (el) el.textContent = text;
+            }
+
+            document
+                .getElementById("ble-connect")
+                .addEventListener("click", async function () {
+                    setStatus("Connecting...");
+                    try {
+                        const res = await fetch("/connect", { method: "GET" });
+                        if (res.ok) {
+                            // try parse JSON status if available
+                            let j = null;
+                            try {
+                                j = await res.json();
+                            } catch (e) {
+                                /* ignore */
+                            }
+                            setStatus(j && j.status ? j.status : "Connecting");
+                        } else {
+                            setStatus("Connect failed: " + res.status);
+                        }
+                    } catch (e) {
+                        setStatus("Error: " + (e && e.message ? e.message : e));
+                    }
+                });
+
+            document
+                .getElementById("ble-disconnect")
+                .addEventListener("click", async function () {
+                    setStatus("Disconnecting...");
+                    try {
+                        const res = await fetch("/disconnect", {
+                            method: "GET",
+                        });
+                        if (res.ok) {
+                            let j = null;
+                            try {
+                                j = await res.json();
+                            } catch (e) {
+                                /* ignore */
+                            }
+                            setStatus(
+                                j && j.status ? j.status : "Disconnected",
+                            );
+                        } else {
+                            setStatus("Disconnect failed: " + res.status);
+                        }
+                    } catch (e) {
+                        setStatus("Error: " + (e && e.message ? e.message : e));
+                    }
+                });
+
+            // Poll connection status so UI reflects state even if connect was triggered elsewhere
+            setInterval(async () => {
+                try {
+                    const res = await fetch("/connect_status");
+                    if (!res.ok) return;
+                    const s = await res.json();
+                    setStatus(
+                        s.connected
+                            ? "Connected"
+                            : s.running
+                              ? "Connecting"
+                              : "Not connected",
+                    );
+                } catch (e) {
+                    // silent
+                }
+            }, 2000);
+        </script>
+    </body>
 </html>
