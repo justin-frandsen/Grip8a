@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Stats</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    </head>
+    <body>
+        <nav>
+            <a href="/">Home</a> | <a href="/graph">Graph</a> | <a href="/stats">Stats</a>
+        </nav>
+        <hr />
+        <h2>Statistics</h2>
+
+            <input type="hidden" id="selected-user" value="{{ selected_user|e if selected_user is not none else '' }}" />
+            <div>
+                <label for="user-select">User:</label>
+                <select id="user-select">
+                    <option value="">(anonymous)</option>
+                </select>
+            </div>
+
+        <div id="stats-content" style="margin-top:12px">
+            {% if stats is defined and stats %}
+                <h3>Statistics for {{ selected_user|e }}</h3>
+                <div class="stats-grid" style="max-width:380px">
+                    <div class="label">Total force:</div>
+                    <div class="value">{{ '%.2f'|format(stats.total_force) }} <span class="unit">units</span></div>
+
+                    <div class="label">Average force:</div>
+                    <div class="value">{{ '%.2f'|format(stats.avg_force) }} <span class="unit">units</span></div>
+
+                    <div class="label">Readings:</div>
+                    <div class="value">{{ stats.count }} <span class="unit">total</span></div>
+
+                    <div class="label">Min force:</div>
+                    <div class="value">{{ '%.2f'|format(stats.min_force) }} <span class="unit">units</span></div>
+
+                    <div class="label">Max force:</div>
+                    <div class="value">{{ '%.2f'|format(stats.max_force) }} <span class="unit">units</span></div>
+                </div>
+                <style>
+                    .stats-grid { display: grid; grid-template-columns: 1fr auto; grid-row-gap: 6px; grid-column-gap: 12px; align-items: center; }
+                    .stats-grid .label { text-align: right; color: #333; padding-right: 6px; }
+                    .stats-grid .value { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace; text-align: right; }
+                    .stats-grid .unit { font-family: inherit; font-size: 0.9em; margin-left: 6px; color: #666; }
+                </style>
+            {% else %}
+                <p>Select a user to view their statistics (not implemented yet).</p>
+            {% endif %}
+        </div>
+
+        <script>
+            async function loadUsers() {
+                try {
+                    const res = await fetch('/api/users');
+                    const users = await res.json();
+                    const sel = document.getElementById('user-select');
+                    users.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.name;
+                        opt.textContent = u.name;
+                        sel.appendChild(opt);
+                    });
+
+                    // Pre-select if server provided selected_user
+                                const pre = (document.getElementById('selected-user') && document.getElementById('selected-user').value) || '';
+                                if (pre) {
+                                    for (let i=0;i<sel.options.length;i++) {
+                                        if (sel.options[i].value === pre) { sel.selectedIndex = i; break; }
+                                    }
+                                }
+
+                    sel.addEventListener('change', (e) => {
+                        const name = e.target.value;
+                        if (!name) {
+                            window.location.href = '/stats';
+                        } else {
+                            window.location.href = '/stats/user/' + encodeURIComponent(name);
+                        }
+                    });
+                } catch (err) {
+                    console.warn('Could not load users', err);
+                }
+            }
+            loadUsers();
+        </script>
+    </body>
+</html>

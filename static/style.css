@@ -1,4 +1,9 @@
 body {
-    background: beige;
-    color: blue
+    font-family: sans-serif;
+    background-color: lightblue;
+    text-align: center;
+}
+
+h1 {
+    color: darkblue;
 }

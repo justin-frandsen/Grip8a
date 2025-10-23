@@ -2,6 +2,7 @@
 <html>
     <head>
         <title>Grip8a Home</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
     </head>
     <body>
         <h1>Welcome to Grip8a!</h1>
@@ -10,7 +11,8 @@
             <a href="/stats">Stats</a>
         </nav>
         <hr />
-        <p>This is the home page. Go to the Graph page to see some fake data</p>
+    <p>This is the home page. Go to the Graph page to see some fake data</p>
+    <p><a href="/create_user">Create a new user</a></p>
 
         <div style="margin-top: 12px">
             <button id="ble-connect">Connect BLE</button>

@@ -17,4 +17,18 @@ sqlite3 grip8a.db "SELECT id, name FROM user;"
 sqlite3 grip8a.db "SELECT id, user_id, timestamp_iso, force FROM reading ORDER BY timestamp_ms DESC LIMIT 10;"
 
 sqlite3 grip8a.db -header -column "SELECT r.id, r.user_id, u.name, r.timestamp_ms, r.timestamp_iso, r.force FROM reading r JOIN user u ON r.user_id = u.id WHERE u.name = 'micah' COLLATE NOCASE ORDER BY r.timestamp_ms ASC;"
+
+sqlite3 grip8a.db "ALTER TABLE user ADD COLUMN age INTEGER; ALTER TABLE user ADD COLUMN gender TEXT; ALTER TABLE user ADD COLUMN weight REAL; ALTER TABLE user ADD COLUMN notes TEXT;"
 ```
+
+SQL (Structured Query Language) is the language used to talk to relational databases (SQLite, PostgreSQL, MySQL, etc.). You describe what data you want (declarative) rather than how to compute it.
+
+Core statements
+SELECT — read data
+
+Basic: SELECT columns FROM table;
+Example: SELECT id, name FROM user;
+Select all columns (avoid in production): SELECT * FROM user;
+INSERT — add rows
+
+curl -sS http://127.0.0.1:8000/ | sed -n '1,120p'

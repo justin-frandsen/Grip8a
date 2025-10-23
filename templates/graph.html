@@ -2,6 +2,7 @@
 <html>
     <head>
         <title>Dynamic Force Graph</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
         <!-- This pulls in the Plotly library from a CDN so we don't need to host or install it ourselves -->
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     </head>
@@ -13,21 +14,17 @@
         </nav>
         <hr />
         <h2>Dynamic Force Graph</h2>
-        <!-- server-provided selected user stored in a hidden field to avoid JS/Jinja injection issues -->
-        <input type="hidden" id="selected-user" value="{{ selected_user|e }}" />
-        <div>
-            <!-- Dropdown for which user we are going to look at -->
+
+        </div>
+        <div style="margin-top: 8px">
+            <!-- User selector -->
             <label for="user-select">User:</label>
             <select id="user-select">
                 <option value="">(anonymous)</option>
             </select>
-            <!-- Empty field for creating a new user (make sure sql injection doesn't work)-->
-            <button id="create-user">Create User</button>
-            <input id="new-username" placeholder="New username" />
-        </div>
-        <div style="margin-top: 8px">
-            <!-- Reccording controls -->
-            <label for="record-seconds">Record for (seconds):</label>
+
+            <!-- Recording controls -->
+            <label for="record-seconds" style="margin-left:12px">Record for (seconds):</label>
             <input
                 id="record-seconds"
                 type="number"
@@ -152,31 +149,9 @@
                         opt.textContent = u.name;
                         sel.appendChild(opt);
                     });
-                    // If the server provided a selected username, try to pre-select it
-                    const selectedUser =
-                        (document.getElementById("selected-user") &&
-                            document.getElementById("selected-user").value) ||
-                        "";
-                    if (selectedUser) {
-                        // find the option matching that username and select it
-                        for (let i = 0; i < sel.options.length; i++) {
-                            if (sel.options[i].text === selectedUser) {
-                                sel.selectedIndex = i;
-                                break;
-                            }
-                        }
-                    }
-                    // When user selection changes, navigate to /graph/<username> or /graph for anonymous
-                    sel.addEventListener("change", (e) => {
-                        const val =
-                            e.target.options[e.target.selectedIndex].text;
-                        if (!val || val === "(anonymous)") {
-                            window.location.href = "/graph";
-                        } else {
-                            // encode the username for a URL path
-                            window.location.href =
-                                "/graph/" + encodeURIComponent(val);
-                        }
+                    // No per-user navigation. Dropdown selection is local.
+                    sel.addEventListener('change', (e) => {
+                        // no-op - selection is used only when posting readings
                     });
                 } catch (err) {
                     console.warn("Could not load users:", err);
@@ -238,30 +213,7 @@
             // update status every 500ms so countdown is visible
             setInterval(updateRecordStatus, 500);
 
-            document
-                .getElementById("create-user")
-                .addEventListener("click", async () => {
-                    const name = document
-                        .getElementById("new-username")
-                        .value.trim();
-                    if (!name) return alert("Enter a name");
-                    try {
-                        const res = await fetch("/api/users", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ name }),
-                        });
-                        const user = await res.json();
-                        const sel = document.getElementById("user-select");
-                        const opt = document.createElement("option");
-                        opt.value = user.id;
-                        opt.textContent = user.name;
-                        sel.appendChild(opt);
-                        sel.value = user.id;
-                    } catch (err) {
-                        console.warn("Could not create user:", err);
-                    }
-                });
+            // Create-user UI was moved to /create_user; no handler needed here.
 
             loadUsers();
         </script>

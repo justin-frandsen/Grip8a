@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 from markupsafe import escape
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import func
 
 import threading
 import asyncio
@@ -236,9 +237,21 @@ ble_manager = BLEManager()
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), unique=True, nullable=False)
+    # optional demographics
+    age = db.Column(db.Integer, nullable=True)
+    gender = db.Column(db.String(20), nullable=True)
+    weight = db.Column(db.Float, nullable=True)
+    notes = db.Column(db.Text, nullable=True)
 
     def to_dict(self):
-        return {"id": self.id, "name": self.name}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "age": self.age,
+            "gender": self.gender,
+            "weight": self.weight,
+            "notes": self.notes,
+        }
 
 
 class Reading(db.Model):
@@ -273,18 +286,46 @@ def index():
 
 @app.route("/graph")
 def graph():
-    return render_template("graph.html", selected_user=None)
-
-
-@app.route("/graph/<username>")
-def graph_for_user(username):
-    return render_template("graph.html", selected_user=username)
-
+    return render_template("graph.html")
 
 @app.route("/stats")
 def stats():
-    return "Statistics Page"
+    return render_template("stats.html")
 
+
+@app.route("/stats/user/<username>")
+def stats_for_user(username):
+    # Render the same template but provide the selected username so the page can pre-select
+    # Try to resolve the user by name (case-insensitive) and compute total force
+    try:
+        user = User.query.filter(func.lower(User.name) == username.lower()).first()
+    except Exception:
+        user = None
+
+    if user is None:
+        total_force = None
+    else:
+        row = db.session.query(
+        func.count(Reading.id).label('count'),
+        func.avg(Reading.force).label('avg_force'),
+        func.sum(Reading.force).label('total_force'),
+        func.min(Reading.force).label('min_force'),
+        func.max(Reading.force).label('max_force'),
+    ).filter(Reading.user_id == user.id).first()
+
+    stats = {
+        "count": int(row.count or 0),
+        "total_force": float(row.total_force) if row.total_force is not None else 0.0,
+        "avg_force": float(row.avg_force) if row.avg_force is not None else 0.0,
+        "min_force": float(row.min_force) if row.min_force is not None else 0.0,
+        "max_force": float(row.max_force) if row.max_force is not None else 0.0,
+    }
+
+    return render_template("stats.html", selected_user=username, stats=stats)
+
+@app.route("/create_user")
+def create_user():
+    return render_template("create_user.html")
 
 @app.route("/connect")
 def connect():
@@ -342,11 +383,24 @@ def users():
         name = payload.get("name")
         if not name:
             return jsonify({"error": "name required"}), 400
-        name = escape(name)
+        name = escape(name).strip()
+
+        # optional demographics
+        try:
+            age = int(payload.get("age", None)) if payload.get("age") is not None else None
+        except Exception:
+            return jsonify({"error": "invalid age"}), 400
+        gender = payload.get("gender")
+        try:
+            weight = float(payload.get("weight")) if payload.get("weight") not in (None, "") else None
+        except Exception:
+            return jsonify({"error": "invalid weight"}), 400
+        notes = payload.get("notes")
+
         existing = User.query.filter_by(name=name).first()
         if existing:
             return jsonify(existing.to_dict()), 200
-        user = User(name=name)
+        user = User(name=name, age=age, gender=gender, weight=weight, notes=notes)
         db.session.add(user)
         db.session.commit()
         return jsonify(user.to_dict()), 201
