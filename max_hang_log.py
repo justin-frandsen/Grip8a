@@ -17,6 +17,8 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         date TEXT,
         user TEXT,
+        current_weight REAL,
+        weight_percent REAL,
         exercise_type TEXT,
         side TEXT,
         edge_size_mm INTEGER,
@@ -61,7 +63,7 @@ def complex_timer(hang_time, rest_time, sets, setup_time=10):
 # ----------------------
 # Logging Max Hangs
 # ----------------------
-def log_max_hang(username):
+def log_max_hang(username, current_weight):
     print("\nSelect Exercise Type:")
     print("1. Hangboard Max Hang")
     print("2. One-arm Weight Pickup")
@@ -78,7 +80,7 @@ def log_max_hang(username):
     edge = int(input("Edge size (mm): "))
 
     if exercise_type == "hangboard":
-        weight = float(input("Added weight (+) or assistance (-): "))
+        weight = float(input("Added weight (lbs): "))
     else:
         weight = float(input("Weight picked up (total): "))
         
@@ -87,14 +89,16 @@ def log_max_hang(username):
     rpe = int(input("RPE (1–10): "))
     notes = input("Notes: ")
 
+    percent_body_weight = (weight/current_weight)*100 if exercise_type == "hangboard" else ((weight/2)/ current_weight)*100
+    print(f"\nYou hung for {duration} sec with {weight} lbs ({percent_body_weight:.1f}% body weight) on a {edge} mm edge.")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
 
     c.execute("""
-        INSERT INTO hangs (date, user, exercise_type, side, edge_size_mm, added_weight, hang_duration_sec, rpe, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO hangs (date, user, current_weight, weight_percent, exercise_type, side, edge_size_mm, added_weight, hang_duration_sec, rpe, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (datetime.now().strftime("%Y-%m-%d %H:%M"),
-          username, exercise_type, side, edge, weight, duration, rpe, notes))
+          username, current_weight, percent_body_weight, exercise_type, side, edge, weight, duration, rpe, notes))
 
     conn.commit()
     conn.close()
@@ -138,6 +142,7 @@ def main_menu():
 
     print("======= MAX HANG APP =======")
     username = input("Enter your username: ").strip()
+    current_weight = float(input("Enter your current body weight (lbs): ").strip())
 
     while True:
         print(f"""
@@ -157,7 +162,7 @@ def main_menu():
             complex_timer(hang, rest, sets)
 
         elif choice == "2":
-            log_max_hang(username)
+            log_max_hang(username, current_weight)
 
         elif choice == "3":
             view_logs(username)
