@@ -1,34 +1,81 @@
 # Grip8a
 
-Repo for finger strength project
+Repo for our experimental **finger strength & hangboard analytics** project.
 
 [![Python](https://img.shields.io/badge/Python-3.13-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![GitHub Repo Size](https://img.shields.io/github/repo-size/justin-frandsen/Grip8a.svg)](https://github.com/justin-frandsen/Grip8a)
 [![Last Commit](https://img.shields.io/github/last-commit/justin-frandsen/Grip8a.svg)](https://github.com/justin-frandsen/Grip8a/commits/main)
 
+Structure:
 ```
-ls -l grip8a.db
-
-# show users
-sqlite3 grip8a.db "SELECT id, name FROM user;"
-
-# show recent readings
-sqlite3 grip8a.db "SELECT id, user_id, timestamp_iso, force FROM reading ORDER BY timestamp_ms DESC LIMIT 10;"
-
-sqlite3 grip8a.db -header -column "SELECT r.id, r.user_id, u.name, r.timestamp_ms, r.timestamp_iso, r.force FROM reading r JOIN user u ON r.user_id = u.id WHERE u.name = 'micah' COLLATE NOCASE ORDER BY r.timestamp_ms ASC;"
-
-sqlite3 grip8a.db "ALTER TABLE user ADD COLUMN age INTEGER; ALTER TABLE user ADD COLUMN gender TEXT; ALTER TABLE user ADD COLUMN weight REAL; ALTER TABLE user ADD COLUMN notes TEXT;"
+grip8a/
+│
+├── ble/ # Handles Bluetooth Low Energy communication
+│ └── manager.py # BLEManager class + current force value
+│ └── config.py # where to enter device name and uuid
+├── cli/ # Command-line interfaces for user interaction
+│ ├── force_cli.py # Menus for force sensor tools
+│ └── maxhang_cli.py # Menus for hangboard tools
+│
+├── db/ # SQLite database logic
+│ ├── force_db.py # Handles force sensor table (readings)
+│ ├── maxhang_db.py # Handles hang log table (hangs)
+│ └── config.py # Central DB file path shared across modules
+│
+├── utils/ # Shared utilities and helper functions
+│ └── timers.py # Complex timer used for hang protocols
+│
+├── run.py # Entry point for the entire application
+└── README.md
 ```
 
-SQL (Structured Query Language) is the language used to talk to relational databases (SQLite, PostgreSQL, MySQL, etc.). You describe what data you want (declarative) rather than how to compute it.
+## Overview
 
-Core statements
-SELECT — read data
+Grip8a is a system for:
 
-Basic: SELECT columns FROM table;
-Example: SELECT id, name FROM user;
-Select all columns (avoid in production): SELECT * FROM user;
-INSERT — add rows
+- Logging max hangs  
+- Tracking hangboard training progression  
+- Collecting real-time **force sensor** data over BLE  
+- Storing all data in a local SQLite database  
+- Running timers, protocols, and analytics without internet access 
 
-curl -sS http://127.0.0.1:8000/ | sed -n '1,120p'
+Long term we may package it as a mobile app
+
+## current features
+
+### **Hangboard Tools**
+- **Complex Timer** — fully working  
+- **Log Max Hang** — fully working  
+- **View Logs** — fully working  
+- Local SQLite storage
+
+### **Force Sensor Tools**
+- **BLE Connection**
+- **Live force streaming**
+- **Saving readings to DB (`force_readings.db`)**
+- **NOT YET TESTED** — requires Micah
+
+
+## How to run
+
+1. Activate virtual environment
+Mac/Linux:
+```bash
+source .venv/bin/activate
+```
+
+Windows:
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+2. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+3. Run the program
+```bash
+python run.py
+```
