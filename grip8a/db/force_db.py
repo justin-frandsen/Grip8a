@@ -18,6 +18,10 @@ def init_force_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS readings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT,
+            user TEXT,
+            current_weight REAL,
+            weight_percent REAL,
             timestamp_ms INTEGER,
             timestamp_iso TEXT,
             force REAL
@@ -46,7 +50,7 @@ def _writer_loop():
         ts_iso = datetime.utcfromtimestamp(ts).isoformat()
 
         c.execute("""
-            INSERT INTO readings (timestamp_ms, timestamp_iso, force)
+            INSERT INTO readings (date, user, current_weight, timestamp_ms, timestamp_iso, force)
             VALUES (?, ?, ?)
         """, (ts_ms, ts_iso, force_value))
         conn.commit()
